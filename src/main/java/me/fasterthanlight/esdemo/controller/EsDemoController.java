@@ -25,6 +25,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.io.Reader;
+import java.io.StringReader;
+import java.util.Objects;
+
 @RestController
 @Slf4j
 @ApiResponse(responseCode = "500", description = "Internal server error")
@@ -41,13 +45,24 @@ public class EsDemoController {
     @ApiResponse(responseCode = "400", description = "Index already exists in the elasticsearch cluster")
     @SneakyThrows
     @PostMapping
-    public ResponseEntity<Void> createIndex(@PathVariable String indexName) {
+    public ResponseEntity<Void> createIndex(@PathVariable String indexName,
+                                            @RequestBody(required = false) String jsonSettings) {
         if (isIndexExists(indexName)) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
 
-        CreateIndexRequest request = CreateIndexRequest.of(builder -> builder.index(indexName));
-        CreateIndexResponse createIndexResponse = elasticsearchClient.indices().create(request);
+        CreateIndexRequest createIndexRequest;
+
+        if (Objects.nonNull(jsonSettings) && !jsonSettings.trim().isEmpty()) {
+            Reader reader = new StringReader(jsonSettings);
+
+            createIndexRequest = CreateIndexRequest.of(builder -> builder.index(indexName)
+                    .withJson(reader));
+        } else {
+            createIndexRequest = CreateIndexRequest.of(builder -> builder.index(indexName));
+        }
+
+        CreateIndexResponse createIndexResponse = elasticsearchClient.indices().create(createIndexRequest);
 
         if (createIndexResponse.acknowledged()) {
             return ResponseEntity.status(HttpStatus.CREATED).build();
@@ -75,7 +90,6 @@ public class EsDemoController {
     @ApiResponse(responseCode = "400", description = "Document does not exist by specified id")
     @GetMapping("/documents/{documentId}")
     public GenericDocument getDocumentById(@PathVariable String indexName, @PathVariable String documentId) {
-        //In case there is a need to avoid providing 'indexName' then we can use relation db for mapping documentId to index
         checkIndexExistence(indexName);
 
         Criteria criteria = new Criteria(ID_FIELD_NAME)
