@@ -4,7 +4,9 @@ spring:
       name: ${AUTH_USER}
       password: ${AUTH_PASSWORD}
   elasticsearch:
-    uris: http://localhost:9200
+    uris: ${ELASTIC_URL}
+    password: ${ELASIC_PASSWORD}
+    username: elastic
 
 logging:
   pattern:
